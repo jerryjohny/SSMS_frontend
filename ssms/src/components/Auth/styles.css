@@ -1,0 +1,119 @@
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.auth-card {
+  width: min(100%, 880px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 1.25rem;
+}
+
+.auth-card__intro {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 0;
+  padding: 0.4rem 0;
+}
+
+.auth-brand {
+  display: grid;
+  justify-items: start;
+  gap: 0.2rem;
+  margin-top: 20px;
+  margin-bottom: 8px;
+}
+
+.auth-logo {
+  width: min(100%, 5.125rem);
+  height: auto;
+  display: block;
+  justify-self: start;
+  flex: 0 0 auto;
+}
+
+.auth-card__intro .eyebrow {
+  font-size: calc(0.72rem + 3px);
+  margin: 0 0 50px;
+}
+
+.auth-card__intro h1,
+.auth-form h2 {
+  margin: 0;
+  font-family: "Bahnschrift", "Segoe UI Variable Display", sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.auth-card__intro h1 {
+  font-size: clamp(1.95rem, 5.2vw, 3.45rem);
+}
+
+.auth-copy {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--muted);
+  font-size: calc(1.05rem - 2px);
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 24px;
+  background: rgba(16, 33, 58, 0.04);
+}
+
+.auth-error {
+  margin: 0;
+  color: #8c2b1a;
+  font-weight: 700;
+}
+
+.auth-divider {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.auth-divider span {
+  position: relative;
+  padding: 0 0.75rem;
+}
+
+.auth-divider span::before,
+.auth-divider span::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 3rem;
+  height: 1px;
+  background: rgba(16, 33, 58, 0.12);
+}
+
+.auth-divider span::before {
+  right: 100%;
+}
+
+.auth-divider span::after {
+  left: 100%;
+}
+
+.auth-google-slot {
+  min-height: 42px;
+}
+
+@media (max-width: 760px) {
+  .auth-card {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-form {
+    padding: 0;
+    background: transparent;
+  }
+}

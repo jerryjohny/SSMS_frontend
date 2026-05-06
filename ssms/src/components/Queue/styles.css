@@ -1,0 +1,161 @@
+.pending-board {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.pending-card {
+  padding: 1rem;
+  border: 1px solid rgba(16, 33, 58, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.pending-card--interactive {
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.pending-card--interactive:hover {
+  transform: translateY(-1px);
+  border-color: rgba(242, 95, 76, 0.22);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.pending-card--interactive:focus-visible {
+  outline: 2px solid rgba(242, 95, 76, 0.4);
+  outline-offset: 2px;
+}
+
+.pending-card__header,
+.pending-card__footer,
+.pending-card__details {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pending-card__details {
+  flex-wrap: wrap;
+  color: var(--muted);
+  margin: 0.8rem 0;
+}
+
+.pending-card h3 {
+  margin: 0;
+}
+
+.pending-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.pending-card__footer {
+  align-items: flex-end;
+}
+
+.pending-card__footer p {
+  max-width: 28ch;
+  text-align: right;
+}
+
+.pending-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(16, 33, 58, 0.32);
+  backdrop-filter: blur(8px);
+}
+
+.pending-sheet {
+  width: min(100%, 32rem);
+  max-height: min(100vh - 2rem, 40rem);
+  display: grid;
+  gap: 1rem;
+  overflow: auto;
+}
+
+.pending-sheet__header,
+.pending-sheet__footer,
+.pending-sheet__status,
+.pending-sheet__meta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.pending-sheet__header h2 {
+  margin: 0;
+}
+
+.pending-sheet__meta,
+.pending-sheet__status {
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.pending-regularize-options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pending-regularize-option {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(16, 33, 58, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.pending-regularize-option input {
+  margin-top: 0.2rem;
+}
+
+.pending-regularize-option strong,
+.pending-regularize-option p {
+  margin: 0;
+}
+
+.pending-regularize-option p {
+  color: var(--muted);
+}
+
+.pending-regularize-option--amount {
+  justify-content: space-between;
+}
+
+.pending-regularize-option__field {
+  min-width: 9rem;
+}
+
+.pending-sheet__footer {
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .pending-card__header,
+  .pending-card__footer,
+  .pending-card__details {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pending-card__footer p {
+    text-align: left;
+  }
+
+  .pending-sheet__header,
+  .pending-sheet__footer {
+    flex-direction: column;
+  }
+
+  .pending-regularize-option--amount {
+    flex-direction: column;
+  }
+}

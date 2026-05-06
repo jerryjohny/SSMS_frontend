@@ -1,0 +1,246 @@
+.catalog-tabs {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  margin-top: -0.2rem;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+}
+
+.catalog-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.catalog-tabs__button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.72rem 0.94rem;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.catalog-tabs__button.active {
+  background: rgba(16, 33, 58, 0.92);
+  color: white;
+  box-shadow: 0 14px 32px rgba(16, 33, 58, 0.16);
+}
+
+.catalog-tabs__button:hover {
+  transform: translateY(-1px);
+}
+
+.catalog-feedback {
+  margin: -0.15rem 0 0;
+}
+
+.catalog-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+.catalog-actions__add {
+  padding: 0.72rem 0.88rem;
+  font-size: 0.92rem;
+}
+
+.catalog-panel-action {
+  align-self: flex-start;
+}
+
+.catalog-panel-action--shop {
+  padding: 0.62rem 0.8rem;
+  font-size: 0.88rem;
+  margin-bottom: 10px;
+}
+
+.catalog-card--button {
+  width: 100%;
+  border: 1px solid rgba(16, 33, 58, 0.08);
+  text-align: left;
+}
+
+.catalog-card--button:hover {
+  border-color: rgba(242, 95, 76, 0.22);
+}
+
+.catalog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(16, 33, 58, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.catalog-sheet {
+  width: min(100%, 46rem);
+  max-height: min(100vh - 2rem, 48rem);
+  display: grid;
+  gap: 1rem;
+  overflow: auto;
+}
+
+.catalog-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.catalog-sheet__header h2 {
+  margin: 0;
+  font-family: "Bahnschrift", "Segoe UI Variable Display", sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.catalog-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.catalog-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.catalog-image-actions .ghost-button,
+.catalog-image-actions .secondary-button {
+  flex: 1 1 160px;
+}
+
+.catalog-barcode-field {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.catalog-packaging-flags {
+  grid-column: 1 / -1;
+}
+
+.catalog-barcode-field__action {
+  justify-self: start;
+  padding: 0.72rem 0.92rem;
+}
+
+.catalog-hidden-input {
+  display: none;
+}
+
+.catalog-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+}
+
+.catalog-checkbox-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.catalog-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(16, 33, 58, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.catalog-audit-filters {
+  margin: 1rem 0;
+}
+
+.catalog-audit-filters__search {
+  grid-column: 1 / -1;
+}
+
+.catalog-card--audit {
+  align-items: stretch;
+}
+
+.catalog-audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 760px) {
+  .catalog-tabs {
+    gap: 0.5rem;
+    margin-top: -0.35rem;
+    margin-right: -0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .catalog-tabs__button {
+    padding: 0.62rem 0.82rem;
+    font-size: 0.84rem;
+  }
+
+  .catalog-actions {
+    margin-bottom: 0.45rem;
+  }
+
+  .catalog-actions__add {
+    padding: 0.62rem 0.8rem;
+    font-size: 0.88rem;
+  }
+
+  .catalog-panel-action--shop {
+    padding: 0.56rem 0.74rem;
+    font-size: 0.84rem;
+  }
+
+  .catalog-backdrop {
+    align-items: end;
+    padding: 0.7rem;
+  }
+
+  .catalog-sheet {
+    width: 100%;
+    max-height: calc(100vh - 1.4rem - env(safe-area-inset-bottom));
+    padding-bottom: calc(1.2rem + env(safe-area-inset-bottom));
+  }
+
+  .catalog-sheet__header,
+  .catalog-form-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .catalog-image-actions {
+    width: 100%;
+  }
+
+  .catalog-barcode-field__action {
+    width: 100%;
+  }
+
+  .catalog-audit-meta {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .catalog-form-actions .primary-button,
+  .catalog-form-actions .ghost-button,
+  .catalog-image-actions .ghost-button,
+  .catalog-image-actions .secondary-button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,56 @@
+:root {
+  font-family: "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
+  color: #10213a;
+  --page-background:
+    radial-gradient(circle at top left, rgba(242, 95, 76, 0.2), transparent 32%),
+    radial-gradient(circle at 85% 10%, rgba(36, 123, 160, 0.2), transparent 28%),
+    linear-gradient(180deg, #fff9f2 0%, #fff2de 100%);
+  background: var(--page-background);
+  line-height: 1.4;
+  font-weight: 400;
+  --accent: #f25f4c;
+  --accent-deep: #d64933;
+  --cool: #247ba0;
+  --ink: #10213a;
+  --muted: #5a6475;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.eyebrow {
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}

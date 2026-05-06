@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="ssmsWarm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f25f4c"/>
+      <stop offset="100%" stop-color="#247ba0"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="#fff5e9"/>
+  <path d="M42 68c0-10 8-18 18-18h136c10 0 18 8 18 18v34H42V68Z" fill="url(#ssmsWarm)"/>
+  <path d="M42 108h172v80c0 10-8 18-18 18H60c-10 0-18-8-18-18v-80Z" fill="#10213a"/>
+  <path d="M80 142h96" stroke="#fff5e9" stroke-width="20" stroke-linecap="round"/>
+  <path d="M80 174h56" stroke="#70c1b3" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="184" cy="174" r="18" fill="#f25f4c"/>
+</svg>

@@ -1,0 +1,25 @@
+{
+  "short_name": "SSMS",
+  "name": "Stock and Sales Management System",
+  "icons": [
+    {
+      "src": "ssms-app-icon.png",
+      "type": "image/png",
+      "sizes": "1254x1254"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#f25f4c",
+  "background_color": "#fff9f2"
+}
