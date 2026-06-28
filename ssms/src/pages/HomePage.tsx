@@ -79,9 +79,32 @@ function normalizeLineAfterChange(
   return nextLine;
 }
 
+function formatMoneyValue(value: number): string {
+  return value.toFixed(2);
+}
+
+function normalizeAmountPaidForSubmit(line: SaleLine): string {
+  const quantityUnits = Number(line.quantity_units) || 1;
+  const unitPrice = Number(line.unit_price) || 0;
+  const lineTotal = quantityUnits * unitPrice;
+  const parsedAmountPaid = Number(line.amount_paid);
+  const hasValidAmountPaid =
+    String(line.amount_paid).trim() !== "" && Number.isFinite(parsedAmountPaid) && parsedAmountPaid >= 0;
+
+  if (line.payment_status === "later") {
+    return formatMoneyValue(0);
+  }
+
+  if (line.payment_status === "now") {
+    return formatMoneyValue(hasValidAmountPaid ? parsedAmountPaid : lineTotal);
+  }
+
+  return formatMoneyValue(hasValidAmountPaid ? parsedAmountPaid : 0);
+}
+
 export default function HomePage() {
   const { copy } = useI18n();
-  const { currentStoreId, user } = useAuth();
+  const { currentStore, currentStoreId, user } = useAuth();
   const userId = user?.id ?? null;
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
@@ -92,6 +115,7 @@ export default function HomePage() {
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [productPickerMode, setProductPickerMode] = useState<"search" | "list">("search");
   const [draftLine, setDraftLine] = useState<SaleLine | null>(null);
+  const [draftLineQueue, setDraftLineQueue] = useState<SaleLine[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [hydratedDraftScope, setHydratedDraftScope] = useState("");
@@ -117,6 +141,7 @@ export default function HomePage() {
     setSaleLines([]);
     setCustomer(emptyCustomer());
     setDraftLine(null);
+    setDraftLineQueue([]);
     setScannerOpen(false);
     setProductPickerOpen(false);
     setSubmitMessage("");
@@ -167,12 +192,38 @@ export default function HomePage() {
     setProductPickerOpen(true);
   }
 
-  function openProductDetails(product: Product) {
-    const existingLine = saleLines.find((line) => line.product_id === product.id);
+  function beginProductDetailFlow(selectedProducts: Product[]) {
+    if (!selectedProducts.length) {
+      return;
+    }
+
     setProductPickerOpen(false);
     setScannerOpen(false);
     setSubmitMessage("");
-    setDraftLine(createSaleLine(product, existingLine));
+    setDraftLine(null);
+    setDraftLineQueue([]);
+    setSaleLines((currentLines) => {
+      let nextLines = [...currentLines];
+
+      for (const product of selectedProducts) {
+        const existingIndex = nextLines.findIndex((line) => line.product_id === product.id);
+
+        if (existingIndex >= 0) {
+          const existingLine = nextLines[existingIndex];
+          const nextQuantityUnits = (Number(existingLine.quantity_units) || 1) + 1;
+          nextLines[existingIndex] = normalizeLineAfterChange(
+            existingLine,
+            "quantity_units",
+            nextQuantityUnits
+          );
+          continue;
+        }
+
+        nextLines = [createSaleLine(product), ...nextLines];
+      }
+
+      return nextLines;
+    });
   }
 
   function confirmDraftLine() {
@@ -188,7 +239,17 @@ export default function HomePage() {
 
       return [draftLine, ...currentLines];
     });
-    setDraftLine(null);
+
+    setDraftLineQueue((currentQueue) => {
+      if (!currentQueue.length) {
+        setDraftLine(null);
+        return currentQueue;
+      }
+
+      const [nextDraftLine, ...remainingQueue] = currentQueue;
+      setDraftLine(nextDraftLine);
+      return remainingQueue;
+    });
   }
 
   function updateDraftLine(field: EditableLineField, value: string | number) {
@@ -218,7 +279,17 @@ export default function HomePage() {
     setProductPickerOpen(false);
     setScannerOpen(false);
     if (matchedProduct) {
-      openProductDetails(matchedProduct);
+      if (matchedProduct.total_stock_units <= 0) {
+        setSubmitMessage(
+          copy.homePage.notAvailableInCurrentShop(
+            matchedProduct.name,
+            currentStore?.name || copy.common.store
+          )
+        );
+        return;
+      }
+
+      beginProductDetailFlow([matchedProduct]);
       return;
     }
     setSubmitMessage(copy.homePage.notFoundByBarcode(barcode));
@@ -248,7 +319,7 @@ export default function HomePage() {
         product: line.product_id,
         quantity_units: Number(line.quantity_units),
         unit_price: line.unit_price,
-        amount_paid: line.amount_paid,
+        amount_paid: normalizeAmountPaidForSubmit(line),
         pickup_status: line.pickup_status,
         payment_status: line.payment_status,
         note: line.note,
@@ -289,17 +360,22 @@ export default function HomePage() {
   return (
     <>
       <SellerHome
-        products={filteredProducts}
+        allProducts={products}
+        visibleProducts={filteredProducts}
         query={query}
         onQueryChange={setQuery}
         onCloseScanner={() => setScannerOpen(false)}
         onCloseProductPicker={() => setProductPickerOpen(false)}
-        onCloseProductDetails={() => setDraftLine(null)}
+        onCloseProductDetails={() => {
+          setDraftLine(null);
+          setDraftLineQueue([]);
+        }}
         onBarcodeDetected={handleDetectedBarcode}
         onConfirmProductDetails={confirmDraftLine}
+        onConfirmSelectedProducts={beginProductDetailFlow}
         onProductDetailChange={updateDraftLine}
-        onSelectProduct={openProductDetails}
         draftLine={draftLine}
+        queuedDraftLinesCount={draftLineQueue.length}
         productPickerMode={productPickerMode}
         productPickerOpen={productPickerOpen}
         scannerOpen={scannerOpen}

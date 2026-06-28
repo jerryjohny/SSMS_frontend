@@ -392,6 +392,10 @@
   font-size: 0.92rem;
 }
 
+.customer-sheet__feedback {
+  margin: -0.1rem 0 0;
+}
+
 .customer-sheet__tabs {
   display: flex;
   gap: 0.6rem;

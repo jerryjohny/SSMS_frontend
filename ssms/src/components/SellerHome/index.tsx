@@ -22,7 +22,8 @@ type EditableLineField =
   | "note";
 
 interface SellerHomeProps {
-  products: Product[];
+  allProducts: Product[];
+  visibleProducts: Product[];
   query: string;
   onQueryChange: (value: string) => void;
   onCloseScanner: () => void;
@@ -30,9 +31,10 @@ interface SellerHomeProps {
   onCloseProductDetails: () => void;
   onBarcodeDetected: (barcode: string) => void;
   onConfirmProductDetails: () => void;
+  onConfirmSelectedProducts: (products: Product[]) => void;
   onProductDetailChange: (field: EditableLineField, value: string | number) => void;
-  onSelectProduct: (product: Product) => void;
   draftLine: SaleLine | null;
+  queuedDraftLinesCount: number;
   productPickerMode: "search" | "list";
   productPickerOpen: boolean;
   scannerOpen: boolean;
@@ -376,24 +378,28 @@ function BarcodeScannerSheet({
 function ProductPickerSheet({
   mode,
   open,
-  products,
+  allProducts,
+  visibleProducts,
   query,
   onClose,
   onQueryChange,
-  onSelectProduct,
+  onConfirmSelection,
 }: {
   mode: "search" | "list";
   open: boolean;
-  products: Product[];
+  allProducts: Product[];
+  visibleProducts: Product[];
   query: string;
   onClose: () => void;
   onQueryChange: (value: string) => void;
-  onSelectProduct: (product: Product) => void;
+  onConfirmSelection: (products: Product[]) => void;
 }) {
   const { copy, language } = useI18n();
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
 
   useEffect(() => {
     if (!open) {
+      setSelectedProductIds([]);
       return;
     }
 
@@ -408,6 +414,37 @@ function ProductPickerSheet({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose, open]);
+
+  useEffect(() => {
+    setSelectedProductIds((currentIds) =>
+      currentIds.filter((productId) =>
+        visibleProducts.some(
+          (product) => product.id === productId && product.total_stock_units > 0
+        )
+      )
+    );
+  }, [visibleProducts]);
+
+  function toggleProductSelection(productId: number) {
+    setSelectedProductIds((currentIds) =>
+      currentIds.includes(productId)
+        ? currentIds.filter((currentId) => currentId !== productId)
+        : [...currentIds, productId]
+    );
+  }
+
+  function handleConfirmSelection() {
+    const selectedProducts = selectedProductIds
+      .map((productId) => allProducts.find((product) => product.id === productId))
+      .filter((product): product is Product => Boolean(product));
+
+    if (!selectedProducts.length) {
+      return;
+    }
+
+    onConfirmSelection(selectedProducts);
+    setSelectedProductIds([]);
+  }
 
   if (!open) {
     return null;
@@ -445,23 +482,33 @@ function ProductPickerSheet({
         </div>
 
         <div className="picker-sheet__body">
-          {products.length ? (
+          {visibleProducts.length ? (
             <div className="product-grid">
-              {products.map((product) => {
+              {visibleProducts.map((product) => {
                 const stockTone =
                   product.total_stock_units > 20
                     ? "positive"
                     : product.total_stock_units > 0
                     ? "warning"
                     : "danger";
+                const isOutOfStock = product.total_stock_units <= 0;
+                const isSelected = selectedProductIds.includes(product.id);
 
                 return (
                   <button
                     key={product.id}
                     type="button"
-                    className="product-card"
+                    className={`product-card${isSelected ? " selected" : ""}${
+                      isOutOfStock ? " disabled" : ""
+                    }`}
+                    aria-pressed={isSelected}
+                    disabled={isOutOfStock}
                     onClick={() => {
-                      onSelectProduct(product);
+                      if (isOutOfStock) {
+                        return;
+                      }
+
+                      toggleProductSelection(product.id);
                     }}
                   >
                     <div className="product-card__media">
@@ -479,7 +526,14 @@ function ProductPickerSheet({
                       <div className="product-card__meta">
                         <strong>{formatCurrency(product.unit_price, language)}</strong>
                         <span className={`status-pill tone-${stockTone}`}>
-                          {copy.common.inStock(product.total_stock_units)}
+                          {isOutOfStock
+                            ? copy.common.outOfStock
+                            : copy.common.inStock(product.total_stock_units)}
+                        </span>
+                      </div>
+                      <div className="product-card__selection">
+                        <span className={`status-pill ${isSelected ? "tone-positive" : "tone-neutral"}`}>
+                          {isSelected ? copy.profile.selected : copy.profile.tapToSelect}
                         </span>
                       </div>
                     </div>
@@ -490,6 +544,18 @@ function ProductPickerSheet({
           ) : (
             <p className="empty-state">{copy.sellerHome.noProductsMatch}</p>
           )}
+        </div>
+
+        <div className="picker-sheet__footer">
+          <span className="muted-text">{copy.profile.selectedItemsCount(selectedProductIds.length)}</span>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!selectedProductIds.length}
+            onClick={handleConfirmSelection}
+          >
+            {copy.profile.reviewSelectedItems}
+          </button>
         </div>
       </section>
     </div>
@@ -502,12 +568,14 @@ function ProductDetailsSheet({
   onClose,
   onConfirm,
   onLineChange,
+  queuedLinesCount,
 }: {
   line: SaleLine | null;
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
   onLineChange: (field: EditableLineField, value: string | number) => void;
+  queuedLinesCount: number;
 }) {
   const { copy, language } = useI18n();
 
@@ -624,7 +692,7 @@ function ProductDetailsSheet({
             <strong>{formatCurrency(lineTotal, language)}</strong>
           </div>
           <button type="button" className="primary-button" onClick={onConfirm}>
-            {copy.common.save}
+            {queuedLinesCount > 0 ? copy.profile.saveAndNext : copy.common.save}
           </button>
         </div>
       </section>
@@ -633,7 +701,8 @@ function ProductDetailsSheet({
 }
 
 export default function SellerHome({
-  products,
+  allProducts,
+  visibleProducts,
   query,
   onQueryChange,
   onCloseScanner,
@@ -641,9 +710,10 @@ export default function SellerHome({
   onCloseProductDetails,
   onBarcodeDetected,
   onConfirmProductDetails,
+  onConfirmSelectedProducts,
   onProductDetailChange,
-  onSelectProduct,
   draftLine,
+  queuedDraftLinesCount,
   productPickerMode,
   productPickerOpen,
   scannerOpen,
@@ -653,11 +723,12 @@ export default function SellerHome({
       <ProductPickerSheet
         mode={productPickerMode}
         open={productPickerOpen}
-        products={products}
+        allProducts={allProducts}
+        visibleProducts={visibleProducts}
         query={query}
         onClose={onCloseProductPicker}
         onQueryChange={onQueryChange}
-        onSelectProduct={onSelectProduct}
+        onConfirmSelection={onConfirmSelectedProducts}
       />
 
       <ProductDetailsSheet
@@ -666,6 +737,7 @@ export default function SellerHome({
         onClose={onCloseProductDetails}
         onConfirm={onConfirmProductDetails}
         onLineChange={onProductDetailChange}
+        queuedLinesCount={queuedDraftLinesCount}
       />
 
       <BarcodeScannerSheet

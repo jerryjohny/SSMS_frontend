@@ -247,24 +247,44 @@ export function clearStoredSaleDraft(userId: number, storeId: number | null): vo
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
+  function extractMessage(value: unknown): string {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const nestedMessage = extractMessage(entry);
+        if (nestedMessage) {
+          return nestedMessage;
+        }
+      }
+      return "";
+    }
+
+    if (value && typeof value === "object") {
+      for (const nestedValue of Object.values(value)) {
+        const nestedMessage = extractMessage(nestedValue);
+        if (nestedMessage) {
+          return nestedMessage;
+        }
+      }
+    }
+
+    return "";
+  }
+
   try {
     const payload = (await response.json()) as { detail?: string; [key: string]: unknown };
     if (typeof payload.detail === "string" && payload.detail.trim()) {
       return payload.detail;
     }
 
-    const firstEntry = Object.entries(payload)[0];
-    if (!firstEntry) {
-      return `Request failed with ${response.status}`;
+    const nestedMessage = extractMessage(payload);
+    if (nestedMessage) {
+      return nestedMessage;
     }
 
-    const [, value] = firstEntry;
-    if (Array.isArray(value) && value.length) {
-      return String(value[0]);
-    }
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
     return `Request failed with ${response.status}`;
   } catch {
     return `Request failed with ${response.status}`;

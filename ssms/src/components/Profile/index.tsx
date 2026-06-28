@@ -296,6 +296,7 @@ function LineEditorSheet({
 
 function CustomerDetailsSheet({
   customer,
+  feedbackMessage,
   open,
   isSubmitting,
   onClose,
@@ -303,6 +304,7 @@ function CustomerDetailsSheet({
   onSubmit,
 }: {
   customer: CustomerDraft;
+  feedbackMessage: string;
   open: boolean;
   isSubmitting: boolean;
   onClose: () => void;
@@ -516,6 +518,10 @@ function CustomerDetailsSheet({
             </label>
           </div>
         )}
+
+        {feedbackMessage ? (
+          <p className="inline-feedback customer-sheet__feedback">{feedbackMessage}</p>
+        ) : null}
 
         <div className="line-editor-sheet__footer">
           <span className="customer-sheet__hint">{copy.profile.requiredForPendingItems}</span>
@@ -1151,6 +1157,7 @@ export default function Profile({
 
       <CustomerDetailsSheet
         customer={customer}
+        feedbackMessage={feedbackMessage}
         open={customerSheetOpen}
         isSubmitting={isSubmitting}
         onClose={() => setCustomerSheetOpen(false)}
