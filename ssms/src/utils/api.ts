@@ -353,10 +353,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       headers,
     });
   } catch (error) {
-    const message =
+    const rawMessage =
       error instanceof Error && error.message.trim()
         ? error.message
         : "Network request failed.";
+    const message =
+      /failed to fetch/i.test(rawMessage) || /network request failed/i.test(rawMessage)
+        ? API_USES_RELATIVE_PROXY
+          ? "Cannot reach the local backend. Check the proxy target and whether Django is running."
+          : "Cannot reach the remote backend. Check REACT_APP_API_BASE_URL, CORS allowed origins, HTTPS, and whether the API is awake."
+        : rawMessage;
     throw new ApiRequestError(message, { isNetworkError: true });
   }
 

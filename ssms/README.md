@@ -26,8 +26,10 @@ Development already uses [.env.development](</d:/Germano/Germano/P/SSMS/SSMS_fro
 
 - `HOST=0.0.0.0`
 - `HTTPS=true`
-- `REACT_APP_API_BASE_URL=/api/v1`
+- `REACT_APP_API_BASE_URL=/api/v1` for local proxied backend, or a full URL like `https://your-api-host/api/v1` for a remote backend
 
-In development, CRA proxies `/api/v1/*` to `http://127.0.0.1:8000`, so the frontend can stay on HTTPS while Django still runs on plain HTTP locally.
+When `REACT_APP_API_BASE_URL` is relative, CRA proxies `/api/*` and `/media/*` to `DEV_BACKEND_PROXY_TARGET` (default `http://127.0.0.1:8000`), so the frontend can stay on HTTPS while Django still runs on plain HTTP locally.
+
+When `REACT_APP_API_BASE_URL` is absolute, no local proxy is used and the browser talks directly to that backend. In that case the backend must allow the frontend origin via CORS.
 
 Copy `.env.example` to `.env` only if you need to override the default API base.
