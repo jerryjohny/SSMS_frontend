@@ -150,6 +150,7 @@
 }
 
 .settings-sheet {
+  position: relative;
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
@@ -164,10 +165,35 @@
   gap: 0.75rem;
 }
 
+.settings-sheet__header--compact {
+  position: relative;
+  padding-right: 3.25rem;
+}
+
 .settings-sheet__header h2 {
   margin: 0;
   font-family: "Bahnschrift", "Segoe UI Variable Display", sans-serif;
   letter-spacing: -0.03em;
+}
+
+.icon-close-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(16, 33, 58, 0.08);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.icon-close-button span {
+  transform: translateY(-1px);
 }
 
 .settings-note {
@@ -216,14 +242,49 @@
   justify-content: flex-start;
 }
 
+.settings-sheet input[readonly] {
+  cursor: default;
+  background: rgba(16, 33, 58, 0.05);
+  border-color: rgba(16, 33, 58, 0.08);
+  color: rgba(16, 33, 58, 0.62);
+  -webkit-text-fill-color: rgba(16, 33, 58, 0.62);
+}
+
+.settings-password-trigger {
+  width: fit-content;
+}
+
+.settings-profile-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .settings-actions {
   display: flex;
+  justify-content: flex-end;
+}
+
+.settings-actions--end {
   justify-content: flex-end;
 }
 
 .settings-actions--spread {
   align-items: center;
   justify-content: space-between;
+}
+
+.settings-profile-save--icon {
+  min-width: 3.6rem;
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+}
+
+.settings-profile-save--icon span {
+  display: inline-block;
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
 .settings-queue-toolbar {
@@ -262,6 +323,38 @@
 .settings-queue-card h3,
 .settings-queue-card p {
   margin: 0;
+}
+
+.settings-mini-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  padding: 1rem;
+  background: rgba(16, 33, 58, 0.28);
+  display: grid;
+  place-items: center;
+  z-index: 2;
+}
+
+.settings-mini-modal {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 1rem;
+  position: relative;
+}
+
+.settings-mini-modal__header {
+  position: relative;
+  padding-right: 3rem;
+}
+
+.settings-mini-modal__header h3 {
+  margin: 0;
+}
+
+.icon-close-button--small {
+  width: 2.1rem;
+  height: 2.1rem;
+  font-size: 1.2rem;
 }
 
 .language-choice-list {
@@ -333,6 +426,11 @@
     flex-direction: column;
   }
 
+  .settings-sheet__header--compact {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
   .header-actions {
     width: 100%;
     justify-content: space-between;
@@ -352,6 +450,27 @@
   .settings-queue-toolbar .ghost-button,
   .settings-queue-toolbar .secondary-button,
   .settings-queue-toolbar .primary-button {
+    width: 100%;
+  }
+
+  .settings-actions--end {
+    align-items: flex-end;
+  }
+
+  .settings-password-trigger {
+    width: 100%;
+  }
+
+  .settings-profile-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .settings-mini-modal-backdrop {
+    padding: 0.75rem;
+    align-items: end;
+  }
+
+  .settings-mini-modal {
     width: 100%;
   }
 

@@ -4,6 +4,7 @@ import { useAuth } from "../authContext";
 import BarcodeCaptureSheet from "../components/BarcodeCaptureSheet";
 import { useI18n } from "../i18nContext";
 import {
+  createTenant,
   fetchAuditEvents,
   createProduct,
   createStore,
@@ -12,6 +13,7 @@ import {
   fetchInventories,
   fetchProducts,
   fetchStores,
+  fetchTenants,
   fetchUsers,
   restockInventory,
   updateStore,
@@ -29,6 +31,8 @@ import {
   RestockPayload,
   Store,
   StorePayload,
+  TenantPayload,
+  TenantSummary,
   UserAccount,
   UserPayload,
   UserRole,
@@ -43,6 +47,7 @@ type ProductPriceTouchState = {
 };
 
 type ProductPackagingMode = "" | "package" | "box";
+type StoreTenantMode = "existing" | "create";
 
 function auditEventLabel(copy: ReturnType<typeof useI18n>["copy"], eventType: AuditEventType): string {
   switch (eventType) {
@@ -167,6 +172,24 @@ function applyDerivedInitialUnits(draft: ProductPayload): ProductPayload {
   return nextDraft;
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Unable to load image preview."));
+    };
+
+    reader.onerror = () => reject(new Error("Unable to load image preview."));
+    reader.readAsDataURL(file);
+  });
+}
+
 function emptyRestockDraft(inventoryId?: number): RestockPayload {
   return {
     inventory: inventoryId || 0,
@@ -200,11 +223,20 @@ function resolveProductPackagingMode(product?: Product): ProductPackagingMode {
 
 function emptyStoreDraft(): StorePayload {
   return {
+    tenant: null,
     name: "",
     code: "",
     address: "",
     phone: "",
     admin_user_id: null,
+    is_active: true,
+  };
+}
+
+function emptyTenantDraft(): TenantPayload {
+  return {
+    name: "",
+    slug: "",
     is_active: true,
   };
 }
@@ -228,12 +260,16 @@ function ManagementSheet({
   title,
   eyebrow,
   onClose,
+  closeVariant = "button",
+  sheetClassName = "",
   children,
 }: {
   open: boolean;
   title: string;
-  eyebrow: string;
+  eyebrow?: string;
   onClose: () => void;
+  closeVariant?: "button" | "icon";
+  sheetClassName?: string;
   children: React.ReactNode;
 }) {
   const { copy } = useI18n();
@@ -269,15 +305,30 @@ function ManagementSheet({
         }
       }}
     >
-      <section className="catalog-sheet surface-panel">
-        <div className="catalog-sheet__header">
+      <section className={`catalog-sheet surface-panel ${sheetClassName}`.trim()}>
+        <div
+          className={`catalog-sheet__header${
+            closeVariant === "icon" ? " catalog-sheet__header--icon-close" : ""
+          }`}
+        >
           <div>
-            <p className="eyebrow">{eyebrow}</p>
+            {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
             <h2>{title}</h2>
           </div>
-          <button type="button" className="ghost-button" onClick={onClose}>
-            {copy.common.close}
-          </button>
+          {closeVariant === "icon" ? (
+            <button
+              type="button"
+              className="catalog-sheet__close-icon"
+              aria-label={copy.common.close}
+              onClick={onClose}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          ) : (
+            <button type="button" className="ghost-button" onClick={onClose}>
+              {copy.common.close}
+            </button>
+          )}
         </div>
         {children}
       </section>
@@ -290,6 +341,7 @@ export default function CatalogPage() {
   const { currentStore, currentStoreId, role } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [expiryAlerts, setExpiryAlerts] = useState<ExpiryAlert[]>([]);
+  const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -298,6 +350,7 @@ export default function CatalogPage() {
   const [productDraft, setProductDraft] = useState<ProductPayload>(emptyProductDraft(currentStoreId));
   const [restockDraft, setRestockDraft] = useState<RestockPayload>(emptyRestockDraft());
   const [storeDraft, setStoreDraft] = useState<StorePayload>(emptyStoreDraft());
+  const [tenantDraft, setTenantDraft] = useState<TenantPayload>(emptyTenantDraft());
   const [userDraft, setUserDraft] = useState<UserPayload>(emptyUserDraft());
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [productPriceTouched, setProductPriceTouched] = useState<ProductPriceTouchState>({
@@ -309,6 +362,8 @@ export default function CatalogPage() {
   );
   const [productImagePreview, setProductImagePreview] = useState("");
   const [productBarcodeScannerOpen, setProductBarcodeScannerOpen] = useState(false);
+  const [isProductDescriptionOpen, setIsProductDescriptionOpen] = useState(false);
+  const [storeTenantMode, setStoreTenantMode] = useState<StoreTenantMode>("existing");
   const [editingStoreId, setEditingStoreId] = useState<number | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -440,9 +495,10 @@ export default function CatalogPage() {
   }
 
   const loadWorkspace = useCallback(async () => {
-    const [nextProducts, nextExpiryAlerts, nextStores, nextInventories, nextUsers] = await Promise.all([
+    const [nextProducts, nextExpiryAlerts, nextTenants, nextStores, nextInventories, nextUsers] = await Promise.all([
       fetchProducts(currentStoreId || undefined),
       fetchExpiryAlerts(currentStoreId || undefined),
+      canManageUsers ? fetchTenants() : Promise.resolve([]),
       fetchStores(),
       canManageCatalog ? fetchInventories(currentStoreId || undefined) : Promise.resolve([]),
       canManageUsers ? fetchUsers() : Promise.resolve([]),
@@ -450,6 +506,7 @@ export default function CatalogPage() {
 
     setProducts(nextProducts);
     setExpiryAlerts(nextExpiryAlerts);
+    setTenants(nextTenants);
     setStores(nextStores);
     setInventories(nextInventories);
     setUsers(nextUsers);
@@ -547,6 +604,9 @@ export default function CatalogPage() {
     setActiveModal(null);
     setEditingProductId(null);
     setProductBarcodeScannerOpen(false);
+    setIsProductDescriptionOpen(false);
+    setStoreTenantMode("existing");
+    setTenantDraft(emptyTenantDraft());
     setProductPackagingMode(emptyProductPackagingMode());
     setProductPriceTouched({
       packagePrice: false,
@@ -604,12 +664,44 @@ export default function CatalogPage() {
     setFeedbackMessage("");
 
     try {
-      if (editingStoreId) {
-        await updateStore(editingStoreId, storeDraft);
-      } else {
-        await createStore(storeDraft);
+      let tenantId = storeDraft.tenant ?? null;
+
+      if (storeTenantMode === "create") {
+        const tenantName = tenantDraft.name.trim();
+        const tenantSlug = tenantDraft.slug.trim();
+
+        if (!tenantName || !tenantSlug) {
+          throw new Error(copy.catalog.tenantRequired);
+        }
+
+        const createdTenant = await createTenant({
+          ...tenantDraft,
+          name: tenantName,
+          slug: tenantSlug,
+        });
+
+        tenantId = createdTenant.id;
+        setTenants((currentValue) => [createdTenant, ...currentValue.filter((item) => item.id !== createdTenant.id)]);
       }
+
+      if (!tenantId) {
+        throw new Error(copy.catalog.tenantRequired);
+      }
+
+      const nextStoreDraft = {
+        ...storeDraft,
+        tenant: tenantId,
+      };
+
+      if (editingStoreId) {
+        await updateStore(editingStoreId, nextStoreDraft);
+      } else {
+        await createStore(nextStoreDraft);
+      }
+
       setStoreDraft(emptyStoreDraft());
+      setTenantDraft(emptyTenantDraft());
+      setStoreTenantMode("existing");
       closeModal();
       await loadWorkspace();
     } catch (error) {
@@ -643,6 +735,7 @@ export default function CatalogPage() {
     if (store) {
       setEditingStoreId(store.id);
       setStoreDraft({
+        tenant: store.tenant ?? null,
         name: store.name,
         code: store.code,
         address: store.address || "",
@@ -650,9 +743,13 @@ export default function CatalogPage() {
         admin_user_id: store.admin_user?.id || null,
         is_active: store.is_active ?? true,
       });
+      setStoreTenantMode("existing");
+      setTenantDraft(emptyTenantDraft());
     } else {
       setEditingStoreId(null);
       setStoreDraft(emptyStoreDraft());
+      setStoreTenantMode(tenants.length ? "existing" : "create");
+      setTenantDraft(emptyTenantDraft());
     }
     setActiveModal("store");
   }
@@ -694,10 +791,12 @@ export default function CatalogPage() {
           )
         )
       );
+      setIsProductDescriptionOpen(Boolean(product.description?.trim()));
       setProductImagePreview(product.image || "");
     } else {
       setEditingProductId(null);
       setProductPriceTouched(resetTouchedState);
+      setIsProductDescriptionOpen(false);
       setProductPackagingMode(emptyProductPackagingMode());
       setProductDraft(
         applyDerivedInitialUnits(
@@ -710,26 +809,26 @@ export default function CatalogPage() {
     setActiveModal("product");
   }
 
-  function handleProductImageChange(file: File | null) {
-    setProductDraft((currentValue) => ({ ...currentValue, image: file }));
-
+  async function handleProductImageChange(file: File | null) {
     if (!file) {
+      setProductDraft((currentValue) => ({ ...currentValue, image: null }));
       setProductImagePreview(editingProductId ? productImagePreview : "");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setProductImagePreview(typeof reader.result === "string" ? reader.result : "");
-    };
-    reader.readAsDataURL(file);
+    const previewSource = await readFileAsDataUrl(file);
+
+    setProductDraft((currentValue) => ({ ...currentValue, image: file }));
+    setProductImagePreview(previewSource);
   }
 
   function handleProductImageInput(
     event: React.ChangeEvent<HTMLInputElement>,
     source: "picker" | "camera"
   ) {
-    handleProductImageChange(event.target.files?.[0] || null);
+    void handleProductImageChange(event.target.files?.[0] || null).catch((error) => {
+      setFeedbackMessage(error instanceof Error ? error.message : "Unable to process the selected image.");
+    });
 
     if (source === "picker" && productImageInputRef.current) {
       productImageInputRef.current.value = "";
@@ -1157,7 +1256,8 @@ export default function CatalogPage() {
       <ManagementSheet
         open={activeModal === "product"}
         title={editingProductId ? copy.common.update : copy.catalog.openProductForm}
-        eyebrow={copy.catalog.products}
+        closeVariant="icon"
+        sheetClassName="catalog-sheet--product"
         onClose={closeModal}
       >
         {productImagePreview ? (
@@ -1165,8 +1265,8 @@ export default function CatalogPage() {
             <img src={productImagePreview} alt={productDraft.name || copy.catalog.productImage} />
           </div>
         ) : null}
-        <div className="field-grid">
-          <label className="field-stack">
+        <div className="field-grid catalog-product-form-grid">
+          <label className="field-stack catalog-product-form__full-width">
             <span>{copy.common.name}</span>
             <input
               value={productDraft.name}
@@ -1177,6 +1277,7 @@ export default function CatalogPage() {
             <span>{copy.catalog.barcode}</span>
             <div className="catalog-barcode-field">
               <input
+                className="catalog-barcode-field__input"
                 value={productDraft.barcode}
                 onChange={(event) =>
                   setProductDraft((currentValue) => ({ ...currentValue, barcode: event.target.value }))
@@ -1184,30 +1285,67 @@ export default function CatalogPage() {
               />
               <button
                 type="button"
-                className="ghost-button catalog-barcode-field__action"
-                onClick={() => setProductBarcodeScannerOpen(true)}
+                className="catalog-barcode-field__action"
+                aria-label={copy.catalog.scanBarcode}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setProductBarcodeScannerOpen(true);
+                }}
               >
-                {copy.catalog.scanBarcode}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4.5 7.5V5.8c0-.72.58-1.3 1.3-1.3h1.7M19.5 7.5V5.8c0-.72-.58-1.3-1.3-1.3h-1.7M4.5 16.5v1.7c0 .72.58 1.3 1.3 1.3h1.7M19.5 16.5v1.7c0 .72-.58 1.3-1.3 1.3h-1.7M8.75 8.25v7.5M11.25 8.25v7.5M13.75 8.25v7.5M16.25 8.25v7.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.6"
+                  />
+                </svg>
               </button>
             </div>
           </label>
           <label className="field-stack">
-            <span>{copy.catalog.sku}</span>
+            <span>{copy.catalog.productImage}</span>
+            <div className="catalog-image-actions">
+              <button
+                type="button"
+                className="ghost-button catalog-image-actions__picker"
+                onClick={() => productImageInputRef.current?.click()}
+              >
+                {copy.catalog.chooseImage}
+              </button>
+              <button
+                type="button"
+                className="catalog-image-actions__camera"
+                aria-label={copy.catalog.useCamera}
+                onClick={(event) => {
+                  event.preventDefault();
+                  productCameraInputRef.current?.click();
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M8.5 6.25 9.55 4.9c.22-.28.56-.45.91-.45h3.08c.35 0 .69.17.91.45l1.05 1.35h1.75c1.1 0 2 .9 2 2v7.8c0 1.1-.9 2-2 2H6.75c-1.1 0-2-.9-2-2v-7.8c0-1.1.9-2 2-2H8.5Zm3.5 3.1a3.15 3.15 0 1 0 0 6.3 3.15 3.15 0 0 0 0-6.3Zm0 1.45a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            </div>
             <input
-              value={productDraft.sku}
-              onChange={(event) => setProductDraft((currentValue) => ({ ...currentValue, sku: event.target.value }))}
+              ref={productImageInputRef}
+              className="catalog-hidden-input"
+              type="file"
+              accept="image/*"
+              onChange={(event) => handleProductImageInput(event, "picker")}
             />
-          </label>
-          <label className="field-stack">
-            <span>{copy.catalog.packagingDetails}</span>
             <input
-              value={productDraft.packaging_details}
-              onChange={(event) =>
-                setProductDraft((currentValue) => ({
-                  ...currentValue,
-                  packaging_details: event.target.value,
-                }))
-              }
+              ref={productCameraInputRef}
+              className="catalog-hidden-input"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(event) => handleProductImageInput(event, "camera")}
             />
           </label>
           <div className="field-stack catalog-packaging-flags">
@@ -1298,40 +1436,6 @@ export default function CatalogPage() {
               </label>
             </>
           ) : null}
-          <label className="field-stack">
-            <span>{copy.catalog.productImage}</span>
-            <div className="catalog-image-actions">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => productImageInputRef.current?.click()}
-              >
-                {copy.catalog.chooseImage}
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => productCameraInputRef.current?.click()}
-              >
-                {copy.catalog.useCamera}
-              </button>
-            </div>
-            <input
-              ref={productImageInputRef}
-              className="catalog-hidden-input"
-              type="file"
-              accept="image/*"
-              onChange={(event) => handleProductImageInput(event, "picker")}
-            />
-            <input
-              ref={productCameraInputRef}
-              className="catalog-hidden-input"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(event) => handleProductImageInput(event, "camera")}
-            />
-          </label>
           {!editingProductId ? (
             <>
               <label className="field-stack">
@@ -1389,7 +1493,7 @@ export default function CatalogPage() {
                   />
                 </label>
               ) : null}
-              <label className="field-stack">
+              <label className="field-stack catalog-product-form__expiry">
                 <span>{copy.catalog.expiryDate}</span>
                 <input
                   type="date"
@@ -1405,25 +1509,39 @@ export default function CatalogPage() {
             </>
           ) : null}
         </div>
-        <label className="field-stack">
-          <span>{copy.common.description}</span>
-          <textarea
-            rows={2}
-            value={productDraft.description}
-            onChange={(event) =>
-              setProductDraft((currentValue) => ({ ...currentValue, description: event.target.value }))
-            }
-          />
-        </label>
-        <label className="field-stack">
-          <span>{copy.common.notes}</span>
-          <textarea
-            rows={2}
-            value={productDraft.note}
-            onChange={(event) => setProductDraft((currentValue) => ({ ...currentValue, note: event.target.value }))}
-          />
-        </label>
-        <div className="catalog-form-actions">
+        <div className={`catalog-product-description${isProductDescriptionOpen ? " is-open" : ""}`}>
+          <button
+            type="button"
+            className="catalog-product-description__toggle"
+            aria-controls="product-description-field"
+            aria-expanded={isProductDescriptionOpen}
+            onClick={() => setIsProductDescriptionOpen((currentValue) => !currentValue)}
+          >
+            <span>{copy.common.description}</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="m7 10 5 5 5-5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+              />
+            </svg>
+          </button>
+          <div className="catalog-product-description__body">
+            <textarea
+              id="product-description-field"
+              rows={3}
+              tabIndex={isProductDescriptionOpen ? 0 : -1}
+              value={productDraft.description}
+              onChange={(event) =>
+                setProductDraft((currentValue) => ({ ...currentValue, description: event.target.value }))
+              }
+            />
+          </div>
+        </div>
+        <div className="catalog-form-actions catalog-form-actions--product">
           <button type="button" className="ghost-button" onClick={closeModal}>
             {copy.common.cancel}
           </button>
@@ -1542,25 +1660,77 @@ export default function CatalogPage() {
         open={activeModal === "store"}
         title={editingStoreId ? copy.common.update : copy.catalog.openShopForm}
         eyebrow={copy.common.shops}
+        closeVariant="icon"
         onClose={closeModal}
       >
         <div className="field-grid">
+          <label className="field-stack catalog-form__full-width">
+            <span>{copy.catalog.tenant}</span>
+            <select
+              value={storeTenantMode === "create" ? "__create__" : String(storeDraft.tenant || "")}
+              onChange={(event) => {
+                if (event.target.value === "__create__") {
+                  setStoreTenantMode("create");
+                  setStoreDraft((currentValue) => ({ ...currentValue, tenant: null }));
+                  return;
+                }
+
+                setStoreTenantMode("existing");
+                setStoreDraft((currentValue) => ({
+                  ...currentValue,
+                  tenant: event.target.value ? Number(event.target.value) : null,
+                }));
+              }}
+            >
+              <option value="">
+                {tenants.length ? copy.catalog.selectTenant : copy.catalog.noTenantsAvailable}
+              </option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name} ({tenant.slug})
+                </option>
+              ))}
+              <option value="__create__">{copy.catalog.createTenantOption}</option>
+            </select>
+          </label>
+          {storeTenantMode === "create" ? (
+            <>
+              <label className="field-stack">
+                <span>{copy.common.tenantName}</span>
+                <input
+                  value={tenantDraft.name}
+                  onChange={(event) =>
+                    setTenantDraft((currentValue) => ({ ...currentValue, name: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="field-stack">
+                <span>{copy.common.tenantSlug}</span>
+                <input
+                  value={tenantDraft.slug}
+                  onChange={(event) =>
+                    setTenantDraft((currentValue) => ({ ...currentValue, slug: event.target.value }))
+                  }
+                />
+              </label>
+            </>
+          ) : null}
           <label className="field-stack">
-            <span>{copy.common.name}</span>
+            <span>{copy.common.shopName}</span>
             <input
               value={storeDraft.name}
               onChange={(event) => setStoreDraft((currentValue) => ({ ...currentValue, name: event.target.value }))}
             />
           </label>
           <label className="field-stack">
-            <span>{copy.common.code}</span>
+            <span>{copy.common.shopCode}</span>
             <input
               value={storeDraft.code}
               onChange={(event) => setStoreDraft((currentValue) => ({ ...currentValue, code: event.target.value }))}
             />
           </label>
           <label className="field-stack">
-            <span>{copy.common.phone}</span>
+            <span>{copy.common.shopPhone}</span>
             <input
               value={storeDraft.phone}
               onChange={(event) => setStoreDraft((currentValue) => ({ ...currentValue, phone: event.target.value }))}
@@ -1587,8 +1757,8 @@ export default function CatalogPage() {
               ))}
             </select>
           </label>
-          <label className="field-stack">
-            <span>{copy.common.address}</span>
+          <label className="field-stack catalog-form__full-width">
+            <span>{copy.common.shopAddress}</span>
             <input
               value={storeDraft.address}
               onChange={(event) =>
@@ -1608,7 +1778,7 @@ export default function CatalogPage() {
           />
           <span>{copy.common.active}</span>
         </label>
-        <div className="catalog-form-actions">
+        <div className="catalog-form-actions catalog-form-actions--store">
           <button type="button" className="ghost-button" onClick={closeModal}>
             {copy.common.cancel}
           </button>

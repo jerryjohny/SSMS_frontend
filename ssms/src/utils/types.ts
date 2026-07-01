@@ -21,6 +21,12 @@ export interface TenantSummary {
   is_active?: boolean;
 }
 
+export interface TenantPayload {
+  name: string;
+  slug: string;
+  is_active?: boolean;
+}
+
 export interface StoreAdminSummary {
   id: number;
   display_name: string;
@@ -154,6 +160,7 @@ export interface UserPayload {
 }
 
 export interface StorePayload {
+  tenant?: number | null;
   name: string;
   code: string;
   address?: string;
@@ -174,9 +181,9 @@ export interface CustomerAccount {
 }
 
 export interface SessionProfilePayload {
-  display_name: string;
-  email: string;
-  phone: string;
+  display_name?: string;
+  email?: string;
+  phone?: string;
   current_password?: string;
   new_password?: string;
   confirm_new_password?: string;

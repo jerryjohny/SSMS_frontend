@@ -1,4 +1,4 @@
-import { mockExpiryAlerts, mockPendingItems, mockProducts, mockStores } from "../data/shops";
+import { mockExpiryAlerts, mockPendingItems, mockProducts, mockStores, mockTenants } from "../data/shops";
 import {
   AuditEvent,
   AccountingSnapshot,
@@ -20,6 +20,8 @@ import {
   SessionProfilePayload,
   Store,
   StorePayload,
+  TenantPayload,
+  TenantSummary,
   UserAccount,
   UserPayload,
 } from "./types";
@@ -501,6 +503,24 @@ export function fetchStores(): Promise<Store[]> {
     path: "/accounts/stores/",
     fallback: mockStores,
   });
+}
+
+export function fetchTenants(): Promise<TenantSummary[]> {
+  return loadCachedResource<TenantSummary>({
+    cacheName: "tenants",
+    path: "/accounts/tenants/",
+    fallback: mockTenants,
+  });
+}
+
+export async function createTenant(payload: TenantPayload): Promise<TenantSummary> {
+  const tenant = await request<TenantSummary>("/accounts/tenants/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const cachedTenants = readCache<TenantSummary[]>("tenants", mockTenants);
+  writeCache("tenants", [tenant, ...cachedTenants.filter((item) => item.id !== tenant.id)]);
+  return tenant;
 }
 
 export async function createStore(payload: StorePayload): Promise<Store> {

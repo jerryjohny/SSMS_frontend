@@ -1,8 +1,13 @@
-import { ExpiryAlert, PendingItem, Product, Store } from "../utils/types";
+import { ExpiryAlert, PendingItem, Product, Store, TenantSummary } from "../utils/types";
+
+export const mockTenants: TenantSummary[] = [
+  { id: 1, name: "SSMS Retail", slug: "ssms-retail" },
+  { id: 2, name: "SSMS Wholesale", slug: "ssms-wholesale" },
+];
 
 export const mockStores: Store[] = [
-  { id: 1, name: "Baixa Store", code: "BAIXA" },
-  { id: 2, name: "Airport Kiosk", code: "AIRPORT" },
+  { id: 1, tenant: 1, tenant_name: "SSMS Retail", name: "Baixa Store", code: "BAIXA" },
+  { id: 2, tenant: 2, tenant_name: "SSMS Wholesale", name: "Airport Kiosk", code: "AIRPORT" },
 ];
 
 export const mockProducts: Product[] = [

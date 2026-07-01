@@ -28,6 +28,11 @@ function createProfileDraft(userName: string, user: { email?: string; phone?: st
     display_name: userName,
     email: user?.email || "",
     phone: user?.phone || "",
+  };
+}
+
+function createPasswordDraft() {
+  return {
     current_password: "",
     new_password: "",
     confirm_new_password: "",
@@ -68,8 +73,13 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSheet, setActiveSheet] = useState<SettingsSheet | "queue">(null);
   const [profileDraft, setProfileDraft] = useState(() => createProfileDraft(userName, user));
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [passwordDraft, setPasswordDraft] = useState(createPasswordDraft);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
   const [queuedSales, setQueuedSales] = useState<QueuedSale[]>(() => fetchQueuedSales());
   const [queueSyncEvents, setQueueSyncEvents] = useState<QueueSyncEvent[]>(() => fetchQueueSyncEvents());
   const [isSyncingQueue, setIsSyncingQueue] = useState(false);
@@ -88,7 +98,11 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
   useEffect(() => {
     if (activeSheet === "profile") {
       setProfileDraft(createProfileDraft(userName, user));
+      setIsProfileEditing(false);
       setProfileError("");
+      setPasswordDraft(createPasswordDraft());
+      setPasswordError("");
+      setIsPasswordModalOpen(false);
     }
   }, [activeSheet, user, userName]);
 
@@ -147,28 +161,30 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
     setActiveSheet(null);
   }
 
+  function openPasswordModal() {
+    setPasswordDraft(createPasswordDraft());
+    setPasswordError("");
+    setIsPasswordModalOpen(true);
+  }
+
+  function closePasswordModal() {
+    setIsPasswordModalOpen(false);
+    setPasswordDraft(createPasswordDraft());
+    setPasswordError("");
+  }
+
   async function saveProfile() {
     setIsSavingProfile(true);
     setProfileError("");
 
     try {
-      const passwordChangeRequested =
-        Boolean(profileDraft.current_password) ||
-        Boolean(profileDraft.new_password) ||
-        Boolean(profileDraft.confirm_new_password);
       const payload = {
         display_name: profileDraft.display_name,
         email: profileDraft.email,
         phone: profileDraft.phone,
-        ...(passwordChangeRequested
-          ? {
-              current_password: profileDraft.current_password,
-              new_password: profileDraft.new_password,
-              confirm_new_password: profileDraft.confirm_new_password,
-            }
-          : {}),
       };
       await updateProfile(payload);
+      setIsProfileEditing(false);
       closeSheet();
     } catch (error) {
       setProfileError(
@@ -176,6 +192,38 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
       );
     } finally {
       setIsSavingProfile(false);
+    }
+  }
+
+  function handleProfilePrimaryAction() {
+    if (!isProfileEditing) {
+      setProfileError("");
+      setIsProfileEditing(true);
+      return;
+    }
+
+    saveProfile().catch(() => {
+      return;
+    });
+  }
+
+  async function savePassword() {
+    setIsSavingPassword(true);
+    setPasswordError("");
+
+    try {
+      await updateProfile({
+        current_password: passwordDraft.current_password,
+        new_password: passwordDraft.new_password,
+        confirm_new_password: passwordDraft.confirm_new_password,
+      });
+      closePasswordModal();
+    } catch (error) {
+      setPasswordError(
+        error instanceof Error ? error.message : copy.header.profileSaveError
+      );
+    } finally {
+      setIsSavingPassword(false);
     }
   }
 
@@ -344,7 +392,11 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
           }}
         >
           <section className="settings-sheet surface-panel">
-            <div className="settings-sheet__header">
+            <div
+              className={`settings-sheet__header${
+                activeSheet === "profile" ? " settings-sheet__header--compact" : ""
+              }`}
+            >
               <div>
                 <p className="eyebrow">
                   {activeSheet === "profile"
@@ -365,18 +417,29 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
                     : copy.header.offlineQueue}
                 </h2>
               </div>
-              <button type="button" className="ghost-button" onClick={closeSheet}>
-                {copy.common.close}
-              </button>
+              {activeSheet === "profile" ? (
+                <button
+                  type="button"
+                  className="icon-close-button"
+                  aria-label={copy.common.close}
+                  onClick={closeSheet}
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              ) : (
+                <button type="button" className="ghost-button" onClick={closeSheet}>
+                  {copy.common.close}
+                </button>
+              )}
             </div>
 
             {activeSheet === "profile" ? (
               <>
-                <p className="settings-note">{copy.header.profileDescription}</p>
                 <div className="settings-grid">
                   <label className="field-stack">
                     <span>{copy.common.userName}</span>
                     <input
+                      readOnly={!isProfileEditing}
                       value={profileDraft.display_name}
                       onChange={(event) =>
                         setProfileDraft((currentValue) => ({
@@ -390,6 +453,7 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
                     <span>{copy.common.email}</span>
                     <input
                       type="email"
+                      readOnly={!isProfileEditing}
                       value={profileDraft.email}
                       onChange={(event) =>
                         setProfileDraft((currentValue) => ({
@@ -402,6 +466,7 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
                   <label className="field-stack">
                     <span>{copy.common.phone}</span>
                     <input
+                      readOnly={!isProfileEditing}
                       value={profileDraft.phone}
                       onChange={(event) =>
                         setProfileDraft((currentValue) => ({
@@ -418,65 +483,103 @@ export default function Layout({ activePage, onChangePage, children }: LayoutPro
                     </div>
                   </label>
                 </div>
-                <div className="settings-section">
-                  <div className="settings-section__header">
-                    <h3 className="settings-section__title">{copy.header.passwordSectionTitle}</h3>
-                    <p className="settings-note">{copy.header.passwordSectionDescription}</p>
-                  </div>
-                  <div className="settings-grid">
-                    <label className="field-stack">
-                      <span>{copy.common.currentPassword}</span>
-                      <input
-                        type="password"
-                        autoComplete="current-password"
-                        value={profileDraft.current_password}
-                        onChange={(event) =>
-                          setProfileDraft((currentValue) => ({
-                            ...currentValue,
-                            current_password: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="field-stack">
-                      <span>{copy.common.newPassword}</span>
-                      <input
-                        type="password"
-                        autoComplete="new-password"
-                        value={profileDraft.new_password}
-                        onChange={(event) =>
-                          setProfileDraft((currentValue) => ({
-                            ...currentValue,
-                            new_password: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="field-stack">
-                      <span>{copy.common.confirmNewPassword}</span>
-                      <input
-                        type="password"
-                        autoComplete="new-password"
-                        value={profileDraft.confirm_new_password}
-                        onChange={(event) =>
-                          setProfileDraft((currentValue) => ({
-                            ...currentValue,
-                            confirm_new_password: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-                </div>
                 {profileError ? <p className="settings-note settings-note--error">{profileError}</p> : null}
-                <div className="settings-actions settings-actions--spread">
-                  <button type="button" className="ghost-button" onClick={logout}>
+                <div className="settings-profile-toolbar">
+                  <button type="button" className="secondary-button settings-password-trigger" onClick={openPasswordModal}>
+                    {copy.header.passwordSectionTitle}
+                  </button>
+                  <button
+                    type="button"
+                    className={`secondary-button${isProfileEditing ? "" : " settings-profile-save--icon"}`}
+                    disabled={isSavingProfile}
+                    aria-label={isProfileEditing ? copy.common.save : copy.common.edit}
+                    onClick={handleProfilePrimaryAction}
+                  >
+                    {isProfileEditing ? copy.common.save : <span aria-hidden="true">&#9998;</span>}
+                  </button>
+                </div>
+                <div className="settings-actions settings-actions--end">
+                  <button type="button" className="danger-button" onClick={logout}>
                     {copy.common.logout}
                   </button>
-                  <button type="button" className="primary-button" disabled={isSavingProfile} onClick={saveProfile}>
-                    {copy.common.save}
-                  </button>
                 </div>
+                {isPasswordModalOpen ? (
+                  <div
+                    className="settings-mini-modal-backdrop"
+                    role="presentation"
+                    onPointerDown={(event) => {
+                      if (event.target === event.currentTarget) {
+                        closePasswordModal();
+                      }
+                    }}
+                  >
+                    <section className="settings-mini-modal surface-panel">
+                      <div className="settings-mini-modal__header">
+                        <h3 className="settings-section__title">{copy.header.passwordSectionTitle}</h3>
+                        <button
+                          type="button"
+                          className="icon-close-button icon-close-button--small"
+                          aria-label={copy.common.close}
+                          onClick={closePasswordModal}
+                        >
+                          <span aria-hidden="true">&times;</span>
+                        </button>
+                      </div>
+                      <div className="settings-section">
+                        <div className="settings-grid">
+                          <label className="field-stack">
+                            <span>{copy.common.currentPassword}</span>
+                            <input
+                              type="password"
+                              autoComplete="current-password"
+                              value={passwordDraft.current_password}
+                              onChange={(event) =>
+                                setPasswordDraft((currentValue) => ({
+                                  ...currentValue,
+                                  current_password: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field-stack">
+                            <span>{copy.common.newPassword}</span>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={passwordDraft.new_password}
+                              onChange={(event) =>
+                                setPasswordDraft((currentValue) => ({
+                                  ...currentValue,
+                                  new_password: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field-stack">
+                            <span>{copy.common.confirmNewPassword}</span>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={passwordDraft.confirm_new_password}
+                              onChange={(event) =>
+                                setPasswordDraft((currentValue) => ({
+                                  ...currentValue,
+                                  confirm_new_password: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+                      </div>
+                      {passwordError ? <p className="settings-note settings-note--error">{passwordError}</p> : null}
+                      <div className="settings-actions">
+                        <button type="button" className="primary-button" disabled={isSavingPassword} onClick={savePassword}>
+                          {copy.common.save}
+                        </button>
+                      </div>
+                    </section>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
